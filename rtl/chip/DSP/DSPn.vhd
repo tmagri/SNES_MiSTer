@@ -7,6 +7,7 @@ entity DSPn is
 	port(
 		CLK			: in std_logic;
 		CE				: in std_logic;
+		TURBO			: in std_logic := '0';
 		RST_N			: in std_logic;
 		ENABLE		: in std_logic;
 		A0   			: in std_logic;
@@ -107,10 +108,20 @@ architecture rtl of DSPn is
 	signal DBG_DAT_WRr : std_logic;
 	signal DBG_BRK_ADDR : std_logic_vector(10 downto 0) := (others => '1');
 	signal DBG_CTRL : std_logic_vector(7 downto 0) := (others => '0');
+	signal TURBO_CE : std_logic := '0';
 	
 begin
 
-	EN <= ENABLE and CE and not SS_BUSY;
+	process(CLK, RST_N)
+	begin
+		if RST_N = '0' then
+			TURBO_CE <= '0';
+		elsif rising_edge(CLK) then
+			TURBO_CE <= not TURBO_CE;
+		end if;
+	end process;
+
+	EN <= ENABLE and ((CE and not TURBO) or (TURBO and TURBO_CE)) and not SS_BUSY;
 		
 	OP_INSTR <= PROG_ROM_Q(23 downto 22);
 	OP_P <= PROG_ROM_Q(21 downto 20);

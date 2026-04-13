@@ -14,6 +14,8 @@ entity DSP_LHRomMap is
 		MCLK			: in std_logic;
 		RST_N			: in std_logic;
 		ENABLE		: in std_logic := '1';
+		TURBO			: in std_logic := '0';
+		GSU_TURBO		: in std_logic := '0';
 
 		CA   			: in std_logic_vector(23 downto 0);
 		DI				: in std_logic_vector(7 downto 0);
@@ -121,7 +123,9 @@ begin
 		CE      => DSP_CE
 	);
 
-	DSP_CLK <= 760000 when MAP_CTRL(3) = '0' else 1000000;
+	DSP_CLK <= 1000000 when MAP_CTRL(3) = '1' or (MAP_DSP_VER = "011" and GSU_TURBO = '1') else 
+	           800000  when MAP_DSP_VER = "011" else
+			   760000;
 
 	process( CA, MAP_CTRL, CC_DR, ROMSEL_N, RAMSEL_N, BSRAM_MASK, ROM_MASK )
 	begin
@@ -272,6 +276,7 @@ begin
 	port map(
 		CLK			=> MCLK,
 		CE				=> DSP_CE,
+		TURBO			=> TURBO,
 		RST_N			=> RST_N and (MAP_DSP_SEL or MAP_CC_SEL),
 		ENABLE		=> ENABLE,
 		A0				=> DSP_A0,

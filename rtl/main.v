@@ -354,6 +354,8 @@ DSP_LHRomMap #(.USE_DSPn(USE_DSPn)) DSP_LHRomMap
 (
 	.mclk(MCLK),
 	.rst_n(RESET_N),
+	.turbo(TURBO),
+	.gsu_turbo(GSU_TURBO),
 
 	.ca(CA),
 	.di(DO),
