@@ -348,7 +348,7 @@ parameter CONF_STR = {
 	
 	"P3,Hardware;",
 	"P3-;",
-	"D1P3OI,SuperFX Speed,Normal,Turbo;",
+	"D1P3OI,SuperFX/DSP Speed,Normal,Turbo;",
 	"D1P3oE,SuperFX FastROM,Yes,No;",
 	"D3P3O4,CPU Speed,Normal,Turbo;",
 	"P3OU,Audio clock,Typical,Real;",

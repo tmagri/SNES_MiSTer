@@ -349,6 +349,7 @@ wire        DLH_BSRAM_WE_N;
 
 generate
 if (USE_DLH == 1'b1) begin
+wire DSP_ACTIVE;
 
 DSP_LHRomMap #(.USE_DSPn(USE_DSPn)) DSP_LHRomMap
 (
@@ -397,6 +398,8 @@ DSP_LHRomMap #(.USE_DSPn(USE_DSPn)) DSP_LHRomMap
 	
 	.cc_dip(CC_DIP),
 
+	.map_active(DSP_ACTIVE),
+
 	.ss_busy(SS_BUSY),
 	.ss_ram_a(SS_EXT_ADDR[11:0]),
 	.ss_dspn_regs_sel(SS_DSPN_REGS_SEL),
@@ -405,6 +408,7 @@ DSP_LHRomMap #(.USE_DSPn(USE_DSPn)) DSP_LHRomMap
 	.ss_do(SS_DSPN_DI)
 );
 end else begin
+	assign DSP_ACTIVE = 0;
 	assign DLH_DO = 0;
 	assign DLH_IRQ_N = 1;
 	assign DLH_ROM_ADDR = 0;
@@ -609,7 +613,7 @@ end else
 assign MAP_ACTIVE[2] = 0;
 endgenerate
 
-assign GSU_ACTIVE = MAP_ACTIVE[2];
+assign GSU_ACTIVE = MAP_ACTIVE[2] | DSP_ACTIVE;
 
 wire [7:0]  SA1_DO;
 wire        SA1_IRQ_N;

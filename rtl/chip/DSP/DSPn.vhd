@@ -2,6 +2,8 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 library STD;
 use IEEE.NUMERIC_STD.ALL;
+use work.dsp_prog_rom_pkg.all;
+use work.dsp_data_rom_pkg.all;
 
 entity DSPn is
 	port(
@@ -108,20 +110,13 @@ architecture rtl of DSPn is
 	signal DBG_DAT_WRr : std_logic;
 	signal DBG_BRK_ADDR : std_logic_vector(10 downto 0) := (others => '1');
 	signal DBG_CTRL : std_logic_vector(7 downto 0) := (others => '0');
-	signal TURBO_CE : std_logic := '0';
-	
+
+	type ram_type is array (0 to 2047) of std_logic_vector(7 downto 0);
+	signal RAML : ram_type := (others => (others => '0'));
+	signal RAMH : ram_type := (others => (others => '0'));
+
 begin
-
-	process(CLK, RST_N)
-	begin
-		if RST_N = '0' then
-			TURBO_CE <= '0';
-		elsif rising_edge(CLK) then
-			TURBO_CE <= not TURBO_CE;
-		end if;
-	end process;
-
-	EN <= ENABLE and ((CE and not TURBO) or (TURBO and TURBO_CE)) and not SS_BUSY;
+	EN <= ENABLE and (CE or TURBO) and not SS_BUSY;
 		
 	OP_INSTR <= PROG_ROM_Q(23 downto 22);
 	OP_P <= PROG_ROM_Q(21 downto 20);
@@ -507,12 +502,7 @@ begin
 	                 std_logic_vector(unsigned(PC) + ("1"&x"6BD")) when VER="011" else
 	                 std_logic_vector(unsigned(PC) + ("1"&x"D8B"));
 
-	PROG_ROM : entity work.spram_sz generic map(13, 24, 8096, "rtl/chip/DSP/dsp11b23410_p.mif")
-	port map(
-		clock		=> CLK,
-		address	=> PROG_ROM_ADDR,
-		q			=> PROG_ROM_Q
-	);
+	PROG_ROM_Q <= work.dsp_prog_rom_pkg.rom_data(to_integer(unsigned(PROG_ROM_ADDR(12 downto 0))));
 
 	DATA_ROM_ADDR <= std_logic_vector(unsigned(RP( 9 downto 0)) + ("0"&x"000")) when VER="000" and REV='0' else
 	                 std_logic_vector(unsigned(RP( 9 downto 0)) + ("0"&x"400")) when VER="000" and REV='1' else
@@ -520,12 +510,8 @@ begin
 	                 std_logic_vector(unsigned(RP( 9 downto 0)) + ("0"&x"C00")) when VER="010" else
 	                 std_logic_vector(unsigned(RP( 9 downto 0)) + ("1"&x"000")) when VER="011" else
 	                 std_logic_vector(unsigned(RP(10 downto 0)) + ("1"&x"400"));
-	DATA_ROM : entity work.spram_sz generic map(13, 16, 7168, "rtl/chip/DSP/dsp11b23410_d.mif")
-	port map(
-		clock		=> CLK,
-		address	=> DATA_ROM_ADDR,
-		q			=> DATA_ROM_Q
-	);
+
+	DATA_ROM_Q <= work.dsp_data_rom_pkg.rom_data(to_integer(unsigned(DATA_ROM_ADDR(12 downto 0))));
 	
 	DATA_RAM_ADDR_A <= "000" & DP(7 downto 0) when VER(2)='0' else DP;
 	DATA_RAM_ADDR_B <= SS_RAM_A(11 downto 1) when SS_BUSY = '1' else
@@ -536,31 +522,26 @@ begin
 	DATA_RAM_WE_B_H <= SS_RAM_WR and SS_RAM_A(0) when SS_BUSY = '1' else (not WR_N and DP_SEL and DP_ADDR(0));
 	DATA_RAM_DI <= SS_DI when SS_BUSY = '1' else DI;
 
-	DATA_RAML : entity work.dpram generic map(11, 8)
-	port map(
-		clock			=> CLK,
-		address_a	=> DATA_RAM_ADDR_A,
-		data_a		=> OP_ID(7 downto 0),
-		wren_a		=> DATA_RAM_WE,
-		q_a			=> DATA_RAM_Q_A(7 downto 0),
-		address_b	=> DATA_RAM_ADDR_B,
-		data_b		=> DATA_RAM_DI,
-		wren_b		=> DATA_RAM_WE_B_L,
-		q_b			=> DATA_RAM_Q_B(7 downto 0)
-	);
+	DATA_RAM_Q_A(7 downto 0) <= RAML(to_integer(unsigned(DATA_RAM_ADDR_A(10 downto 0))));
+	DATA_RAM_Q_B(7 downto 0) <= RAML(to_integer(unsigned(DATA_RAM_ADDR_B(10 downto 0))));
+	DATA_RAM_Q_A(15 downto 8) <= RAMH(to_integer(unsigned(DATA_RAM_ADDR_A(10 downto 0))));
+	DATA_RAM_Q_B(15 downto 8) <= RAMH(to_integer(unsigned(DATA_RAM_ADDR_B(10 downto 0))));
 
-	DATA_RAMH : entity work.dpram generic map(11, 8)
-	port map(
-		clock			=> CLK,
-		address_a	=> DATA_RAM_ADDR_A,
-		data_a		=> OP_ID(15 downto 8),
-		wren_a		=> DATA_RAM_WE,
-		q_a			=> DATA_RAM_Q_A(15 downto 8),
-		address_b	=> DATA_RAM_ADDR_B,
-		data_b		=> DATA_RAM_DI,
-		wren_b		=> DATA_RAM_WE_B_H,
-		q_b			=> DATA_RAM_Q_B(15 downto 8)
-	);
+	process(CLK)
+	begin
+		if rising_edge(CLK) then
+			if DATA_RAM_WE = '1' then
+				RAML(to_integer(unsigned(DATA_RAM_ADDR_A(10 downto 0)))) <= OP_ID(7 downto 0);
+				RAMH(to_integer(unsigned(DATA_RAM_ADDR_A(10 downto 0)))) <= OP_ID(15 downto 8);
+			end if;
+			if DATA_RAM_WE_B_L = '1' then
+				RAML(to_integer(unsigned(DATA_RAM_ADDR_B(10 downto 0)))) <= DATA_RAM_DI;
+			end if;
+			if DATA_RAM_WE_B_H = '1' then
+				RAMH(to_integer(unsigned(DATA_RAM_ADDR_B(10 downto 0)))) <= DATA_RAM_DI;
+			end if;
+		end if;
+	end process;
 	
 	--I/O Ports
 	process(CLK, RST_N)
