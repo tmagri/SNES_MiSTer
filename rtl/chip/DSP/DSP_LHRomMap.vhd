@@ -276,7 +276,7 @@ begin
 	port map(
 		CLK			=> MCLK,
 		CE				=> DSP_CE,
-		TURBO			=> TURBO,
+		TURBO			=> GSU_TURBO,
 		RST_N			=> RST_N and (MAP_DSP_SEL or MAP_CC_SEL),
 		ENABLE		=> ENABLE,
 		A0				=> DSP_A0,
