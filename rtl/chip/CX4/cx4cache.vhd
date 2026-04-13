@@ -83,7 +83,6 @@ BEGIN
 	)
 	PORT MAP (
 		data => data,
-		outclock => clock,
 		rdaddress => rdaddress,
 		wren => wren,
 		inclock => clock,

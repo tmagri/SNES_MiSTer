@@ -348,7 +348,7 @@ begin
 			if CC_TM_DIV = 21477270*60-1 then
 				CC_TM_DIV <= 0;
 				if CC_TM_CNT = 0 then
-					CC_SR(1) <= CC_TM_ON;
+					CC_SR <= "000000" & CC_TM_ON & '0';
 					CC_TM_ON <= '0';
 				else
 					CC_TM_CNT <= CC_TM_CNT - 1;

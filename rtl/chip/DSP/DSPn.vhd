@@ -210,6 +210,10 @@ begin
 				if (OP_INSTR = INSTR_OP or OP_INSTR = INSTR_RT) and OP_ALU /= x"0" then
 					FLAGS(to_integer(OP_A))(FLAG_S0) <= ALU_R(15);
 					
+					if FLAGS(to_integer(OP_A))(FLAG_OV1) = '0' then
+						FLAGS(to_integer(OP_A))(FLAG_S1) <= ALU_R(15);
+					end if;
+					
 					if ALU_R = x"0000" then
 						FLAGS(to_integer(OP_A))(FLAG_Z) <= '1';
 					else
@@ -245,9 +249,14 @@ begin
 							FLAGS(to_integer(OP_A))(FLAG_OV1) <= '0';
 						when x"4" | x"5" | x"6" | x"7" | x"8" | x"9" =>
 							FLAGS(to_integer(OP_A))(FLAG_OV0) <= OV0;
-							if OV0 = '1' then
-								FLAGS(to_integer(OP_A))(FLAG_S1) <= FLAGS(to_integer(OP_A))(FLAG_OV1) xor (not ALU_R(15));
-								FLAGS(to_integer(OP_A))(FLAG_OV1) <= not FLAGS(to_integer(OP_A))(FLAG_OV1);
+							if OV0 = '1' and FLAGS(to_integer(OP_A))(FLAG_OV1) = '1' then
+								if FLAGS(to_integer(OP_A))(FLAG_S1) = ALU_R(15) then
+									FLAGS(to_integer(OP_A))(FLAG_OV1) <= '1';
+								else
+									FLAGS(to_integer(OP_A))(FLAG_OV1) <= '0';
+								end if;
+							else
+								FLAGS(to_integer(OP_A))(FLAG_OV1) <= OV0 or FLAGS(to_integer(OP_A))(FLAG_OV1);
 							end if;
 						when others => null;
 					end case;
