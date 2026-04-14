@@ -238,24 +238,37 @@ begin
 
 	DMA_ACTIVE <= DMA_RUN or HDMA_RUN;
 	
-	process( SPEED, MEMSEL, REFRESHED, CPU_ACTIVEr, TURBO, INT_RAMSEL_N, INT_ROMSEL_N )	
+	process( SPEED, MEMSEL, REFRESHED, CPU_ACTIVEr, TURBO, INT_RAMSEL_N, INT_ROMSEL_N, INT_A )	
+		variable IS_DSP_IO : std_logic;
 	begin		
-		-- Turbo should only occur when the cpu is ONLY accessing ram/rom, in otherwords during the main game loop	
+		IS_DSP_IO := '0';
+		
+		-- Detect HiROM DSP space (Top Gear 3000)
+		if INT_A(22 downto 21) = "00" and INT_A(15 downto 13) = "011" then
+			IS_DSP_IO := '1';
+		end if;
+		
+		-- Detect LoROM DSP space (Super Mario Kart, etc.)
+		if INT_A(22 downto 21) = "01" and INT_A(15) = '1' then
+			IS_DSP_IO := '1';
+		end if;
+
+		-- Turbo should only occur when the cpu is ONLY accessing ram/rom
 		if TURBO = '1' and INT_RAMSEL_N = '0' and REFRESHED = '0' then
 			CPU_MID_CLOCK <= x"1";
 			CPU_LAST_CLOCK <= x"5";	
-		elsif TURBO = '1' and INT_ROMSEL_N = '0' and REFRESHED = '0' then
+		elsif TURBO = '1' and INT_ROMSEL_N = '0' and REFRESHED = '0' and IS_DSP_IO = '0' then
 			CPU_MID_CLOCK <= x"1";
-			CPU_LAST_CLOCK <= x"3";
+			CPU_LAST_CLOCK <= x"4"; -- <--- Changed from x"3" to x"4"
 		elsif REFRESHED = '1' and CPU_ACTIVEr = '1' then	
 			CPU_MID_CLOCK <= x"2";
-			CPU_LAST_CLOCK <= x"7";	
+			CPU_LAST_CLOCK <= x"7";
 		elsif SPEED = FAST or (SPEED = SLOWFAST and MEMSEL = '1') then	
 			CPU_MID_CLOCK <= x"2";
-			CPU_LAST_CLOCK <= x"5";	
+			CPU_LAST_CLOCK <= x"5";
 		elsif SPEED = SLOW or (SPEED = SLOWFAST and MEMSEL = '0') then	
 			CPU_MID_CLOCK <= x"2";
-			CPU_LAST_CLOCK <= x"7";	
+			CPU_LAST_CLOCK <= x"7";
 		else	
 			CPU_MID_CLOCK <= x"2";
 			CPU_LAST_CLOCK <= x"B";	

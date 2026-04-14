@@ -112,7 +112,7 @@ architecture rtl of DSPn is
 	signal BUBBLE : std_logic := '0';
 
 begin
-	EN <= ENABLE and ((not TURBO and CE) or (TURBO and not BUBBLE)) and not SS_BUSY;
+	EN <= ENABLE and CE and not SS_BUSY;
 		
 	OP_INSTR <= PROG_ROM_Q(23 downto 22);
 	OP_P <= PROG_ROM_Q(21 downto 20);
