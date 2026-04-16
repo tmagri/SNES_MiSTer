@@ -293,7 +293,7 @@ wire reset = RESET | buttons[1] | status[0] | cart_download | spc_download | bk_
 // 0         1         2         3          4         5         6
 // 01234567890123456789012345678901 23456789012345678901234567890123
 // 0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXXX XXXXXXXX
+// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXXXXXXXXXXXXX
 
 `include "build_id.v"
 parameter CONF_STR = {
@@ -328,6 +328,7 @@ parameter CONF_STR = {
 	"P1oA,Force 256px,Off,On;",
 	"P1-;",
 	"P1OG,Pseudo Transparency,Blend,Off;",
+	"P1O[58],Mode 7 (x2),Off,On;",
 	"P1-;",
 	"P1OJK,Stereo Mix,None,25%,50%,100%;", 
 
@@ -475,6 +476,7 @@ wire       GSU_FASTROM = ~status[46];
 wire       SUFAMI_SWAP = status[31];
 wire [3:0] CC_TIME = status[57:54];
 wire       BLEND = ~status[16];
+wire       M7_HD = status[58];
 wire [1:0] mouse_mode = status[6:5];
 wire       joy_swap = status[7] | piano;
 wire [2:0] LHRom_type = status[3:1];
@@ -716,6 +718,8 @@ main main
 	.DBG_BG_EN(5'b11111),
 	.DBG_CPU_EN(1'b1),
 `endif
+
+	.M7_HD(M7_HD),
 
 	// MSU register handling
 	.MSU_TRACK_NUM(msu_track_num),

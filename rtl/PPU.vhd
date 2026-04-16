@@ -56,6 +56,8 @@ entity SPPU is
 		
 		BG_EN			: in std_logic_vector(4 downto 0);
 
+		M7_HD			: in std_logic;
+
 		SS_A			: in std_logic_vector(7 downto 0);
 		SS_DO			: out std_logic_vector(7 downto 0)
 	);
@@ -207,6 +209,15 @@ signal M7_TILE_ROW 		: unsigned(2 downto 0);
 signal M7_TILE_COL 		: unsigned(2 downto 0);
 signal M7_TILE_OUTSIDE 	: std_logic;
 signal M7_CALC_SR		: std_logic_vector(2 downto 0);
+
+-- HD Mode 7 sub-pixel 2 signals
+signal M7_VRAM_X2			: signed(26 downto 0);
+signal M7_VRAM_Y2			: signed(26 downto 0);
+signal M7_TILE_COL2		: unsigned(2 downto 0);
+signal M7_TILE_ROW2		: unsigned(2 downto 0);
+signal M7_TILE_OUTSIDE2	: std_logic;
+signal M7_PIX_DATA2		: std_logic_vector(7 downto 0);
+signal M7_HD_SUB2_PHASE	: std_logic;
 
 -- OBJ
 signal OAM_D 				: std_logic_vector(15 downto 0);
@@ -980,7 +991,8 @@ BF <= BF_TBL(to_integer(unsigned(BG_MODE_TILE_SYNC)), to_integer(H_CNT(2 downto 
 
 process( RST_N, CLK, BF, BG_MODE_SYNC, BG_SIZE, BG_SC_ADDR, BG_SC_SIZE, BG_NBA, BG_HOFS, BG_VOFS, H_CNT, V_CNT, IN_VBL, BG_FORCE_BLANK, FORCE_BLANK_SR,
 			BG_DATA, BG_TILE_INFO, BG3_OPT_DATA0, BG3_OPT_DATA1, BG_MOSAIC_Y ,BG_MOSAIC_EN, FIELD, HIRES, BGINTERLACE, VRAM_DAI, DOT_CLK, MPY,
-			M7_SCREEN_X, M7_TEMP_X, M7_TEMP_Y, M7_VRAM_X, M7_VRAM_Y, M7_MULT_X, M7_TILE_N, M7_TILE_COL, M7_TILE_ROW, M7SEL, M7HOFS, M7VOFS, M7X, M7Y, M7A, M7B, M7C, M7D, M7_CALC_SR)
+			M7_SCREEN_X, M7_TEMP_X, M7_TEMP_Y, M7_VRAM_X, M7_VRAM_Y, M7_MULT_X, M7_TILE_N, M7_TILE_COL, M7_TILE_ROW, M7SEL, M7HOFS, M7VOFS, M7X, M7Y, M7A, M7B, M7C, M7D, M7_CALC_SR,
+			M7_HD, M7_VRAM_X2, M7_VRAM_Y2, M7_HD_SUB2_PHASE, M7_TILE_COL2, M7_TILE_ROW2)
 variable SCREEN_X : unsigned(8 downto 0);
 variable SCREEN_Y : unsigned(7 downto 0);
 variable OPTH_EN, OPTV_EN : std_logic;
@@ -1009,6 +1021,7 @@ variable M7_TILE : unsigned(7 downto 0);
 variable BG_TILEMAP_ADDR, BG_TILEDATA_ADDR : unsigned(15 downto 0);
 variable M7_VRAM_ADDRA, M7_VRAM_ADDRB : unsigned(13 downto 0);
 variable M7_IS_OUTSIDE : std_logic;
+variable M7_IS_OUTSIDE2 : std_logic;
 begin
 	case BG_MODE_SYNC is
 		when "000" =>
@@ -1242,6 +1255,13 @@ begin
 		M7_IS_OUTSIDE := '1';
 	end if;
 	
+	-- HD Mode 7: outside check for sub-pixel 2
+	if M7_VRAM_X2(26 downto 18) = "000000000" and M7_VRAM_Y2(26 downto 18) = "000000000" then
+		M7_IS_OUTSIDE2 := '0';
+	else
+		M7_IS_OUTSIDE2 := '1';
+	end if;
+	
 	if M7SEL(7 downto 6) = "11" and M7_IS_OUTSIDE = '1' then 
 		M7_TILE := x"00";
 	else 
@@ -1249,7 +1269,12 @@ begin
 	end if;
 			
 	M7_VRAM_ADDRA := unsigned(M7_VRAM_Y(17 downto 11)) & unsigned(M7_VRAM_X(17 downto 11));
-	M7_VRAM_ADDRB := M7_TILE_N & M7_TILE_ROW & M7_TILE_COL;
+	-- HD Mode 7: redirect ADDRB to sub-pixel 2 address during sub2 phase
+	if M7_HD = '1' and M7_HD_SUB2_PHASE = '1' then
+		M7_VRAM_ADDRB := M7_TILE_N & M7_TILE_ROW2 & M7_TILE_COL2;
+	else
+		M7_VRAM_ADDRB := M7_TILE_N & M7_TILE_ROW & M7_TILE_COL;
+	end if;
 	
 	case BF.MODE is
 		when BF_TILEDATM7 => 
@@ -1271,6 +1296,12 @@ begin
 		M7_TILE_COL <= (others => '0');
 		M7_TILE_OUTSIDE <= '0';
 		M7_CALC_SR <= (others => '0');
+		M7_VRAM_X2 <= (others => '0');
+		M7_VRAM_Y2 <= (others => '0');
+		M7_TILE_COL2 <= (others => '0');
+		M7_TILE_ROW2 <= (others => '0');
+		M7_TILE_OUTSIDE2 <= '0';
+		M7_HD_SUB2_PHASE <= '0';
 	elsif rising_edge(CLK) then 
 		if ENABLE = '1' then
 			if DOT_CLKR_CE = '1' then
@@ -1302,17 +1333,43 @@ begin
 			if DOT_CLKF_CE = '1' then
 				M7_MULT_X <= MPY;
 			end if;
+			
+			if CLK_CNT = 1 then
+				-- HD Mode 7: activate ADDRB redirect for sub-pixel 2 read
+				if M7_HD = '1' and M7_FETCH = '1' then
+					M7_HD_SUB2_PHASE <= '1';
+				end if;
+			end if;
+
+			if CLK_CNT = 3 then
+				-- HD Mode 7: clear ADDRB redirect phase
+				M7_HD_SUB2_PHASE <= '0';
+			end if;
 
 			if DOT_CLKR_CE = '1' then
 				-- First cycle: Set address A for Tile index read
 				M7_VRAM_X <= M7_TEMP_X + M7_MULT_X;
 				M7_VRAM_Y <= M7_TEMP_Y + MPY;
 
+				-- HD Mode 7: compute sub-pixel 2 coordinates (half-pixel offset)
+				if M7_HD = '1' then
+					M7_VRAM_X2 <= (M7_TEMP_X + M7_MULT_X) + resize(shift_right(resize(signed(M7A), 27), 1), 27);
+					M7_VRAM_Y2 <= (M7_TEMP_Y + MPY) + resize(shift_right(resize(signed(M7C), 27), 1), 27);
+				end if;
+
 				-- Second cycle: Set address B for Pixel read
 				M7_TILE_N <= M7_TILE;
 				M7_TILE_COL <= unsigned(M7_VRAM_X(10 downto 8));
 				M7_TILE_ROW <= unsigned(M7_VRAM_Y(10 downto 8));
 				M7_TILE_OUTSIDE <= M7_IS_OUTSIDE;
+
+				-- HD Mode 7: latch sub-pixel 2 fine coords from old M7_VRAM_X2/Y2
+				if M7_HD = '1' then
+					M7_TILE_COL2 <= unsigned(M7_VRAM_X2(10 downto 8));
+					M7_TILE_ROW2 <= unsigned(M7_VRAM_Y2(10 downto 8));
+					M7_TILE_OUTSIDE2 <= M7_IS_OUTSIDE2;
+				end if;
+
 			end if;
 		end if;
 	end if;
@@ -1877,22 +1934,37 @@ begin
 	if RST_N = '0' then
 		SPR_PIX_DATA_BUF <= (others => '0');
 		SPR_PIXEL_X <= (others => '0');
+		M7_PIX_DATA2 <= (others => '0');
 	elsif rising_edge(CLK) then 
-		if ENABLE = '1' and DOT_CLKR_CE = '1' then
-			if H_CNT = LAST_DOT and V_CNT >= 1 and V_CNT <= LAST_VIS_LINE then
-				SPR_PIXEL_X <= (others => '0');
+		if ENABLE = '1' then
+			-- HD Mode 7: capture main pixel data at CLKF before ADDRB redirect
+			if DOT_CLKF_CE = '1' then
+				if SPR_GET_PIXEL = '1' and M7_HD = '1' then
+					if M7SEL(7 downto 6) = "10" and M7_TILE_OUTSIDE2 = '1' then 
+						M7_PIX_DATA2 <= (others => '0');
+					else
+						M7_PIX_DATA2 <= VRAM_DBI;
+					end if;
+				end if;
 			end if;
 
-			if SPR_GET_PIXEL = '1' then
-				SPR_PIX_DATA_BUF <= SPR_PIX_Q;
-				
-				if M7SEL(7 downto 6) = "10" and M7_TILE_OUTSIDE = '1' then 
-					M7_PIX_DATA <= (others => '0');
-				else
-					M7_PIX_DATA <= VRAM_DBI;
+			if DOT_CLKR_CE = '1' then
+				if H_CNT = LAST_DOT and V_CNT >= 1 and V_CNT <= LAST_VIS_LINE then
+					SPR_PIXEL_X <= (others => '0');
 				end if;
-			
-				SPR_PIXEL_X <= SPR_PIXEL_X + 1;
+
+				if SPR_GET_PIXEL = '1' then
+					SPR_PIX_DATA_BUF <= SPR_PIX_Q;
+					
+					-- Main pixel is simply VRAM_DBI at CLKR
+					if M7SEL(7 downto 6) = "10" and M7_TILE_OUTSIDE = '1' then 
+						M7_PIX_DATA <= (others => '0');
+					else
+						M7_PIX_DATA <= VRAM_DBI;
+					end if;
+				
+					SPR_PIXEL_X <= SPR_PIXEL_X + 1;
+				end if;
 			end if;
 		end if;
 	end if;
@@ -1978,7 +2050,8 @@ end process;
 
 
 process( RST_N, CLK, WH0, WH1, WH2, WH3, W12SEL, W34SEL, WOBJSEL, WBGLOG, WOBJLOG, CGWSEL, CGADSUB, TMW, TSW, TM, TS, BG_MODE_SYNC, BG3PRIO, M7EXTBG,
-			WINDOW_X, SPR_PIX_DATA, BG1_PIX_DATA, BG2_PIX_DATA, BG3_PIX_DATA, BG4_PIX_DATA, DOT_CLK, BG_EN)
+			WINDOW_X, SPR_PIX_DATA, BG1_PIX_DATA, BG2_PIX_DATA, BG3_PIX_DATA, BG4_PIX_DATA, DOT_CLK, BG_EN,
+			M7_HD, M7_PIX_DATA2)
 variable PAL1,PAL2,PAL3,PAL4,OBJ_PAL : std_logic_vector(7 downto 0);
 variable PRIO1,PRIO2,PRIO3,PRIO4 : std_logic;
 variable BGPR0EN, BGPR1EN : std_logic_vector(3 downto 0);
@@ -1992,6 +2065,8 @@ variable COLOR	: std_logic_vector(14 downto 0);
 variable COLOR_MASK : std_logic_vector(4 downto 0);
 variable MATH_R, MATH_G, MATH_B	: unsigned(4 downto 0);
 variable HALF : std_logic;
+variable M7_BG1_COLOR : std_logic_vector(7 downto 0);
+variable M7_BG2_COLOR : std_logic_vector(7 downto 0);
 begin
 	if WINDOW_X >= unsigned(WH0) and WINDOW_X <= unsigned(WH1) then
 		win1 := not (WOBJSEL(4)&WOBJSEL(0)&W34SEL(4)&W34SEL(0)&W12SEL(4)&W12SEL(0));
@@ -2059,7 +2134,7 @@ begin
 	PRIO3 := BG3_PIX_DATA(5);
 	PRIO4 := BG4_PIX_DATA(5);
 	
-	if DOT_CLK = '1' then
+	if DOT_CLK = '1' and not (M7_HD = '1' and BG_MODE_SYNC = "111") then
 		BGPR0EN(0) := TS(0) and (not sub_dis(0)) and (not PRIO1) and BG_EN(0);
 		BGPR0EN(1) := TS(1) and (not sub_dis(1)) and (not PRIO2) and BG_EN(1);
 		BGPR0EN(2) := TS(2) and (not sub_dis(2)) and (not PRIO3) and BG_EN(2);
@@ -2336,27 +2411,36 @@ begin
 		end if;
 		
 	else	-- MODE7
+		-- HD Mode 7: select main pixel or sub-pixel 2 based on DOT_CLK
+		if M7_HD = '1' and DOT_CLK = '1' then
+			M7_BG1_COLOR := M7_PIX_DATA2;
+			M7_BG2_COLOR := M7_PIX_DATA2;
+		else
+			M7_BG1_COLOR := BG1_PIX_DATA(7 downto 0);
+			M7_BG2_COLOR := BG2_PIX_DATA(7 downto 0);
+		end if;
+
 		if SPR_PIX_DATA(3 downto 0) /= "0000" and OBJPR3EN = '1' then
 			CGRAM_FETCH_ADDR <= "1" & SPR_PIX_DATA(6 downto 0);
 			MATH := CGADSUB(4) and SPR_PIX_DATA(6);
 		elsif SPR_PIX_DATA(3 downto 0) /= "0000" and OBJPR2EN = '1' then
 			CGRAM_FETCH_ADDR <= "1" & SPR_PIX_DATA(6 downto 0);
 			MATH := CGADSUB(4) and SPR_PIX_DATA(6);
-		elsif BG2_PIX_DATA(6 downto 0) /= "0000000" and BGPR1EN(1) = '1' and M7EXTBG = '1' then
-			CGRAM_FETCH_ADDR <= "0" & BG2_PIX_DATA(6 downto 0);
+		elsif M7_BG2_COLOR(6 downto 0) /= "0000000" and BGPR1EN(1) = '1' and M7EXTBG = '1' then
+			CGRAM_FETCH_ADDR <= "0" & M7_BG2_COLOR(6 downto 0);
 			MATH := CGADSUB(1);
 		elsif SPR_PIX_DATA(3 downto 0) /= "0000" and OBJPR1EN = '1' then
 			CGRAM_FETCH_ADDR <= "1" & SPR_PIX_DATA(6 downto 0);
 			MATH := CGADSUB(4) and SPR_PIX_DATA(6);
-		elsif BG1_PIX_DATA(7 downto 0) /= "00000000" and BGPR0EN(0) = '1' then
-			CGRAM_FETCH_ADDR <= BG1_PIX_DATA(7 downto 0);
+		elsif M7_BG1_COLOR /= "00000000" and BGPR0EN(0) = '1' then
+			CGRAM_FETCH_ADDR <= M7_BG1_COLOR;
 			DCM := CGWSEL(0);
 			MATH := CGADSUB(0);
 		elsif SPR_PIX_DATA(3 downto 0) /= "0000" and OBJPR0EN = '1' then
 			CGRAM_FETCH_ADDR <= "1" & SPR_PIX_DATA(6 downto 0);
 			MATH := CGADSUB(4) and SPR_PIX_DATA(6);
-		elsif BG2_PIX_DATA(6 downto 0) /= "0000000" and BGPR0EN(1) = '1' and M7EXTBG = '1' then
-			CGRAM_FETCH_ADDR <= "0" & BG2_PIX_DATA(6 downto 0);
+		elsif M7_BG2_COLOR(6 downto 0) /= "0000000" and BGPR0EN(1) = '1' and M7EXTBG = '1' then
+			CGRAM_FETCH_ADDR <= "0" & M7_BG2_COLOR(6 downto 0);
 			MATH := CGADSUB(1);
 		else
 			CGRAM_FETCH_ADDR <= (others => '0');
@@ -2445,7 +2529,7 @@ begin
 						MATH_MAIN_G <= MATH_G;
 						MATH_MAIN_B <= MATH_B;
 	
-						if HIRES = '1' or (PSEUDOHIRES = '1' and BLEND = '0') then
+						if HIRES = '1' or (PSEUDOHIRES = '1' and BLEND = '0') or (M7_HD = '1' and BG_MODE_SYNC = "111") then
 							MATH_SUB_R <= SUB_R;
 							MATH_SUB_G <= SUB_G;
 							MATH_SUB_B <= SUB_B;
@@ -2521,7 +2605,9 @@ DOTCLK <= DOT_CLK;
 HBLANK <= IN_HBL;
 VBLANK <= IN_VBL;
 
-HIGH_RES <= HIRES or (PSEUDOHIRES and not BLEND);
+HIGH_RES <= HIRES or (PSEUDOHIRES and not BLEND)
+				or (M7_HD and not HIRES and not PSEUDOHIRES
+				    and BG_MODE_SYNC(2) and BG_MODE_SYNC(1) and BG_MODE_SYNC(0));
 V224 <= not OVERSCAN;
 FIELD_OUT <= FIELD;
 INTERLACE <= BGINTERLACE;
