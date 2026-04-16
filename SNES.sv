@@ -655,11 +655,15 @@ main main
 	.VRAM1_DI(VRAM1_Q),
 	.VRAM1_DO(VRAM1_D),
 	.VRAM1_WE_N(VRAM1_WE_N),
+	.VRAM1_ADDR_B(VRAM1_ADDR_B),
+	.VRAM1_DI_B(VRAM1_Q_B),
 
 	.VRAM2_ADDR(VRAM2_ADDR),
 	.VRAM2_DI(VRAM2_Q),
 	.VRAM2_DO(VRAM2_D),
 	.VRAM2_WE_N(VRAM2_WE_N),
+	.VRAM2_ADDR_B(VRAM2_ADDR_B),
+	.VRAM2_DI_B(VRAM2_Q_B),
 	.VRAM_OE_N(VRAM_OE_N),
 
 	.ARAM_ADDR(ARAM_ADDR),
@@ -943,6 +947,9 @@ wire [15:0] VRAM1_ADDR;
 wire        VRAM1_WE_N;
 wire  [7:0] VRAM1_D;
 wire  [7:0] vram1_q;
+wire [15:0] VRAM1_ADDR_B;
+wire  [7:0] VRAM1_Q_B;
+
 dpram #(15)	vram1
 (
 	.clock(clk_sys),
@@ -951,9 +958,10 @@ dpram #(15)	vram1
 	.wren_a(~VRAM1_WE_N),
 	.q_a(vram1_q),
 
-	// clear the RAM on loading
-	.address_b(mem_fill_addr[14:0]),
-	.wren_b(mem_fill_we)
+	// clear the RAM on loading, else route port B
+	.address_b(clearing_ram ? mem_fill_addr[14:0] : VRAM1_ADDR_B[14:0]),
+	.wren_b(mem_fill_we),
+	.q_b(VRAM1_Q_B)
 );
 wire  [7:0] VRAM1_Q = !VRAM_OE_N && !VRAM_OE_N_DELAYED ? vram1_q : '1;
 
@@ -961,6 +969,9 @@ wire [15:0] VRAM2_ADDR;
 wire        VRAM2_WE_N;
 wire  [7:0] VRAM2_D;
 wire  [7:0] vram2_q;
+wire [15:0] VRAM2_ADDR_B;
+wire  [7:0] VRAM2_Q_B;
+
 dpram #(15) vram2
 (
 	.clock(clk_sys),
@@ -969,9 +980,10 @@ dpram #(15) vram2
 	.wren_a(~VRAM2_WE_N),
 	.q_a(vram2_q),
 
-	// clear the RAM on loading
-	.address_b(mem_fill_addr[14:0]),
-	.wren_b(mem_fill_we)
+	// clear the RAM on loading, else route port B
+	.address_b(clearing_ram ? mem_fill_addr[14:0] : VRAM2_ADDR_B[14:0]),
+	.wren_b(mem_fill_we),
+	.q_b(VRAM2_Q_B)
 );
 wire  [7:0] VRAM2_Q = !VRAM_OE_N && !VRAM_OE_N_DELAYED ? vram2_q : '1; 
 

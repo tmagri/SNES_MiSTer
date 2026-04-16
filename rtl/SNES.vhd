@@ -44,8 +44,12 @@ entity SNES is
 		
 		VRAM_ADDRA	: out std_logic_vector(15 downto 0);
 		VRAM_ADDRB	: out std_logic_vector(15 downto 0);
+		VRAM_ADDRA_B: out std_logic_vector(15 downto 0);
+		VRAM_ADDRB_B: out std_logic_vector(15 downto 0);
 		VRAM_DAI		: in std_logic_vector(7 downto 0);
 		VRAM_DBI		: in std_logic_vector(7 downto 0);
+		VRAM_DAI_B	: in std_logic_vector(7 downto 0);
+		VRAM_DBI_B	: in std_logic_vector(7 downto 0);
 		VRAM_DAO		: out std_logic_vector(7 downto 0);
 		VRAM_DBO		: out std_logic_vector(7 downto 0);
 		VRAM_WRA_N	: out std_logic;
@@ -329,8 +333,12 @@ begin
 		
 		VRAM_ADDRA	=> VRAM_ADDRA,
 		VRAM_ADDRB	=> VRAM_ADDRB,
+		VRAM_ADDRA_B=> VRAM_ADDRA_B,
+		VRAM_ADDRB_B=> VRAM_ADDRB_B,
 		VRAM_DAI		=> VRAM_DAI,
 		VRAM_DBI		=> VRAM_DBI,
+		VRAM_DAI_B	=> VRAM_DAI_B,
+		VRAM_DBI_B	=> VRAM_DBI_B,
 		VRAM_DAO		=> VRAM_DAO,
 		VRAM_DBO		=> VRAM_DBO,
 		VRAM_RD_N	=> VRAM_RD_N,

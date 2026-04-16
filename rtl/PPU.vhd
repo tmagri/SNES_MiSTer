@@ -21,8 +21,12 @@ entity SPPU is
 		
 		VRAM_ADDRA	: out std_logic_vector(15 downto 0);
 		VRAM_ADDRB	: out std_logic_vector(15 downto 0);
+		VRAM_ADDRA_B: out std_logic_vector(15 downto 0);
+		VRAM_ADDRB_B: out std_logic_vector(15 downto 0);
 		VRAM_DAI		: in std_logic_vector(7 downto 0);
 		VRAM_DBI		: in std_logic_vector(7 downto 0);
+		VRAM_DAI_B	: in std_logic_vector(7 downto 0);
+		VRAM_DBI_B	: in std_logic_vector(7 downto 0);
 		VRAM_DAO		: out std_logic_vector(7 downto 0);
 		VRAM_DBO		: out std_logic_vector(7 downto 0);
 		VRAM_WRA_N	: out std_logic;
@@ -172,6 +176,8 @@ signal VBLANK_LINE		: std_logic;
 -- BACKGROUND
 signal BG_VRAM_ADDRA 	: std_logic_vector(15 downto 0);
 signal BG_VRAM_ADDRB 	: std_logic_vector(15 downto 0);
+signal BG_VRAM_ADDRA_B 	: std_logic_vector(15 downto 0);
+signal BG_VRAM_ADDRB_B 	: std_logic_vector(15 downto 0);
 signal HIRES 				: std_logic;
 signal BG_FETCH 			: std_logic;
 signal M7_FETCH 			: std_logic;
@@ -205,6 +211,7 @@ signal M7_VRAM_X 			: signed(26 downto 0);
 signal M7_VRAM_Y 			: signed(26 downto 0);
 signal M7_MULT_X 			: signed(26 downto 0);
 signal M7_TILE_N 			: unsigned(7 downto 0);
+signal M7_TILE_N_B			: unsigned(7 downto 0);
 signal M7_TILE_ROW 		: unsigned(2 downto 0);
 signal M7_TILE_COL 		: unsigned(2 downto 0);
 signal M7_TILE_OUTSIDE 	: std_logic;
@@ -316,6 +323,7 @@ signal BRIGHT_SUB_G		: std_logic_vector(7 downto 0);
 signal BRIGHT_SUB_B		: std_logic_vector(7 downto 0);
 signal MATH_X				: unsigned(7 downto 0);
 signal MATH_Y				: unsigned(7 downto 0);
+
 	
 begin
 
@@ -798,6 +806,12 @@ VRAM_ADDRA <= VMADD_TRANS when NO_BLANK = '0' else
 VRAM_ADDRB <= VMADD_TRANS when NO_BLANK = '0' else 
               BG_VRAM_ADDRB when BG_FETCH = '1' else 
 				  OBJ_VRAM_ADDR;
+VRAM_ADDRA_B <= VMADD_TRANS when NO_BLANK = '0' else 
+              BG_VRAM_ADDRA_B when BG_FETCH = '1' else 
+				  OBJ_VRAM_ADDR;
+VRAM_ADDRB_B <= VMADD_TRANS when NO_BLANK = '0' else 
+              BG_VRAM_ADDRB_B when BG_FETCH = '1' else 
+				  OBJ_VRAM_ADDR;
 				 
 
 VRAM_DAO <= DI;
@@ -990,9 +1004,9 @@ HIRES <= '1' when BG_MODE_SYNC = "101" or BG_MODE_SYNC = "110" else '0';
 BF <= BF_TBL(to_integer(unsigned(BG_MODE_TILE_SYNC)), to_integer(H_CNT(2 downto 0)));
 
 process( RST_N, CLK, BF, BG_MODE_SYNC, BG_SIZE, BG_SC_ADDR, BG_SC_SIZE, BG_NBA, BG_HOFS, BG_VOFS, H_CNT, V_CNT, IN_VBL, BG_FORCE_BLANK, FORCE_BLANK_SR,
-			BG_DATA, BG_TILE_INFO, BG3_OPT_DATA0, BG3_OPT_DATA1, BG_MOSAIC_Y ,BG_MOSAIC_EN, FIELD, HIRES, BGINTERLACE, VRAM_DAI, DOT_CLK, MPY,
-			M7_SCREEN_X, M7_TEMP_X, M7_TEMP_Y, M7_VRAM_X, M7_VRAM_Y, M7_MULT_X, M7_TILE_N, M7_TILE_COL, M7_TILE_ROW, M7SEL, M7HOFS, M7VOFS, M7X, M7Y, M7A, M7B, M7C, M7D, M7_CALC_SR,
-			M7_HD, M7_VRAM_X2, M7_VRAM_Y2, M7_HD_SUB2_PHASE, M7_TILE_COL2, M7_TILE_ROW2)
+			BG_DATA, BG_TILE_INFO, BG3_OPT_DATA0, BG3_OPT_DATA1, BG_MOSAIC_Y ,BG_MOSAIC_EN, FIELD, HIRES, BGINTERLACE, VRAM_DAI, VRAM_DAI_B, DOT_CLK, MPY,
+			M7_SCREEN_X, M7_TEMP_X, M7_TEMP_Y, M7_VRAM_X, M7_VRAM_Y, M7_MULT_X, M7_TILE_N, M7_TILE_N_B, M7_TILE_COL, M7_TILE_ROW, M7SEL, M7HOFS, M7VOFS, M7X, M7Y, M7A, M7B, M7C, M7D, M7_CALC_SR,
+			M7_HD, M7_VRAM_X2, M7_VRAM_Y2, M7_TILE_COL2, M7_TILE_ROW2)
 variable SCREEN_X : unsigned(8 downto 0);
 variable SCREEN_Y : unsigned(7 downto 0);
 variable OPTH_EN, OPTV_EN : std_logic;
@@ -1018,8 +1032,10 @@ variable M7_X, M7_Y : unsigned(7 downto 0);
 variable MPY_MULT_A : signed(15 downto 0);
 variable MPY_MULT_B : signed(10 downto 0);
 variable M7_TILE : unsigned(7 downto 0);
+variable M7_TILE_B : unsigned(7 downto 0);
 variable BG_TILEMAP_ADDR, BG_TILEDATA_ADDR : unsigned(15 downto 0);
 variable M7_VRAM_ADDRA, M7_VRAM_ADDRB : unsigned(13 downto 0);
+variable M7_VRAM_ADDRA_B, M7_VRAM_ADDRB_B : unsigned(13 downto 0);
 variable M7_IS_OUTSIDE : std_logic;
 variable M7_IS_OUTSIDE2 : std_logic;
 begin
@@ -1267,31 +1283,45 @@ begin
 	else 
 		M7_TILE := unsigned(VRAM_DAI);
 	end if;
+
+	if M7_HD = '1' then
+		if M7SEL(7 downto 6) = "11" and M7_IS_OUTSIDE2 = '1' then 
+			M7_TILE_B := x"00";
+		else 
+			M7_TILE_B := unsigned(VRAM_DAI_B);
+		end if;
+	else
+		M7_TILE_B := x"00";
+	end if;
 			
 	M7_VRAM_ADDRA := unsigned(M7_VRAM_Y(17 downto 11)) & unsigned(M7_VRAM_X(17 downto 11));
-	-- HD Mode 7: redirect ADDRB to sub-pixel 2 address during sub2 phase
-	if M7_HD = '1' and M7_HD_SUB2_PHASE = '1' then
-		M7_VRAM_ADDRB := M7_TILE_N & M7_TILE_ROW2 & M7_TILE_COL2;
-	else
-		M7_VRAM_ADDRB := M7_TILE_N & M7_TILE_ROW & M7_TILE_COL;
-	end if;
+	M7_VRAM_ADDRA_B := unsigned(M7_VRAM_Y2(17 downto 11)) & unsigned(M7_VRAM_X2(17 downto 11));
+	M7_VRAM_ADDRB := M7_TILE_N & M7_TILE_ROW & M7_TILE_COL;
+	M7_VRAM_ADDRB_B := M7_TILE_N_B & M7_TILE_ROW2 & M7_TILE_COL2;
 	
 	case BF.MODE is
 		when BF_TILEDATM7 => 
 			BG_VRAM_ADDRA <= "00"&std_logic_vector(M7_VRAM_ADDRA);
 			BG_VRAM_ADDRB <= "00"&std_logic_vector(M7_VRAM_ADDRB);
+			BG_VRAM_ADDRA_B <= "00"&std_logic_vector(M7_VRAM_ADDRA_B);
+			BG_VRAM_ADDRB_B <= "00"&std_logic_vector(M7_VRAM_ADDRB_B);
 		when BF_TILEMAP | BF_OPT0 | BF_OPT1 => 
 			BG_VRAM_ADDRA <= std_logic_vector(BG_TILEMAP_ADDR);
 			BG_VRAM_ADDRB <= std_logic_vector(BG_TILEMAP_ADDR);
+			BG_VRAM_ADDRA_B <= (others => '0');
+			BG_VRAM_ADDRB_B <= (others => '0');
 		when others => 
 			BG_VRAM_ADDRA <= std_logic_vector(BG_TILEDATA_ADDR);
 			BG_VRAM_ADDRB <= std_logic_vector(BG_TILEDATA_ADDR);
+			BG_VRAM_ADDRA_B <= (others => '0');
+			BG_VRAM_ADDRB_B <= (others => '0');
 	end case;
 	
 	if RST_N = '0' then
 		M7_SCREEN_X <= (others => '0');
 
 		M7_TILE_N <= (others => '0');
+		M7_TILE_N_B <= (others => '0');
 		M7_TILE_ROW <= (others => '0');
 		M7_TILE_COL <= (others => '0');
 		M7_TILE_OUTSIDE <= '0';
@@ -1301,7 +1331,6 @@ begin
 		M7_TILE_COL2 <= (others => '0');
 		M7_TILE_ROW2 <= (others => '0');
 		M7_TILE_OUTSIDE2 <= '0';
-		M7_HD_SUB2_PHASE <= '0';
 	elsif rising_edge(CLK) then 
 		if ENABLE = '1' then
 			if DOT_CLKR_CE = '1' then
@@ -1334,18 +1363,6 @@ begin
 				M7_MULT_X <= MPY;
 			end if;
 			
-			if CLK_CNT = 1 then
-				-- HD Mode 7: activate ADDRB redirect for sub-pixel 2 read
-				if M7_HD = '1' and M7_FETCH = '1' then
-					M7_HD_SUB2_PHASE <= '1';
-				end if;
-			end if;
-
-			if CLK_CNT = 3 then
-				-- HD Mode 7: clear ADDRB redirect phase
-				M7_HD_SUB2_PHASE <= '0';
-			end if;
-
 			if DOT_CLKR_CE = '1' then
 				-- First cycle: Set address A for Tile index read
 				M7_VRAM_X <= M7_TEMP_X + M7_MULT_X;
@@ -1359,6 +1376,7 @@ begin
 
 				-- Second cycle: Set address B for Pixel read
 				M7_TILE_N <= M7_TILE;
+				M7_TILE_N_B <= M7_TILE_B;
 				M7_TILE_COL <= unsigned(M7_VRAM_X(10 downto 8));
 				M7_TILE_ROW <= unsigned(M7_VRAM_Y(10 downto 8));
 				M7_TILE_OUTSIDE <= M7_IS_OUTSIDE;
@@ -1937,17 +1955,6 @@ begin
 		M7_PIX_DATA2 <= (others => '0');
 	elsif rising_edge(CLK) then 
 		if ENABLE = '1' then
-			-- HD Mode 7: capture main pixel data at CLKF before ADDRB redirect
-			if DOT_CLKF_CE = '1' then
-				if SPR_GET_PIXEL = '1' and M7_HD = '1' then
-					if M7SEL(7 downto 6) = "10" and M7_TILE_OUTSIDE2 = '1' then 
-						M7_PIX_DATA2 <= (others => '0');
-					else
-						M7_PIX_DATA2 <= VRAM_DBI;
-					end if;
-				end if;
-			end if;
-
 			if DOT_CLKR_CE = '1' then
 				if H_CNT = LAST_DOT and V_CNT >= 1 and V_CNT <= LAST_VIS_LINE then
 					SPR_PIXEL_X <= (others => '0');
@@ -1956,11 +1963,26 @@ begin
 				if SPR_GET_PIXEL = '1' then
 					SPR_PIX_DATA_BUF <= SPR_PIX_Q;
 					
-					-- Main pixel is simply VRAM_DBI at CLKR
-					if M7SEL(7 downto 6) = "10" and M7_TILE_OUTSIDE = '1' then 
-						M7_PIX_DATA <= (others => '0');
+					if M7_HD = '1' then
+						-- HD Mode 7: Subpixel 1 goes to M7_PIX_DATA2 (drawn first), Subpixel 2 goes to M7_PIX_DATA (drawn second)
+						if M7SEL(7 downto 6) = "10" and M7_TILE_OUTSIDE2 = '1' then 
+							M7_PIX_DATA <= (others => '0');
+						else
+							M7_PIX_DATA <= VRAM_DBI_B;
+						end if;
+
+						if M7SEL(7 downto 6) = "10" and M7_TILE_OUTSIDE = '1' then 
+							M7_PIX_DATA2 <= (others => '0');
+						else
+							M7_PIX_DATA2 <= VRAM_DBI;
+						end if;
 					else
-						M7_PIX_DATA <= VRAM_DBI;
+						-- Standard Mode 7
+						if M7SEL(7 downto 6) = "10" and M7_TILE_OUTSIDE = '1' then 
+							M7_PIX_DATA <= (others => '0');
+						else
+							M7_PIX_DATA <= VRAM_DBI;
+						end if;
 					end if;
 				
 					SPR_PIXEL_X <= SPR_PIXEL_X + 1;
@@ -2600,7 +2622,7 @@ end process;
 
 COLOR_OUT <= (others => '0') when BG_FORCE_BLANK = '1' else
              BRIGHT_SUB_B  & BRIGHT_SUB_G  & BRIGHT_SUB_R when DOT_CLK = '1' else
-				 BRIGHT_MAIN_B & BRIGHT_MAIN_G & BRIGHT_MAIN_R;
+             BRIGHT_MAIN_B & BRIGHT_MAIN_G & BRIGHT_MAIN_R;
 DOTCLK <= DOT_CLK;
 HBLANK <= IN_HBL;
 VBLANK <= IN_VBL;
