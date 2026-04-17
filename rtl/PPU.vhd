@@ -1341,8 +1341,16 @@ begin
 				end if;
 
 				if H_CNT = M7_XY_LATCH then
-					M7_TEMP_X <= (resize(signed(M7X), M7_TEMP_X'length) sll 8);
-					M7_TEMP_Y <= (resize(signed(M7Y), M7_TEMP_Y'length) sll 8);
+					-- Mode 7 V2X: on odd fields, shift by half a scanline vertically
+					if M7_HD = '1' and FIELD = '1' then
+						M7_TEMP_X <= (resize(signed(M7X), M7_TEMP_X'length) sll 8)
+						             + resize(shift_right(resize(signed(M7B), 27), 1), 27);
+						M7_TEMP_Y <= (resize(signed(M7Y), M7_TEMP_Y'length) sll 8)
+						             + resize(shift_right(resize(signed(M7D), 27), 1), 27);
+					else
+						M7_TEMP_X <= (resize(signed(M7X), M7_TEMP_X'length) sll 8);
+						M7_TEMP_Y <= (resize(signed(M7Y), M7_TEMP_Y'length) sll 8);
+					end if;
 
 					M7_CALC_SR <= "001";
 				else
@@ -1368,12 +1376,10 @@ begin
 				M7_VRAM_X <= M7_TEMP_X + M7_MULT_X;
 				M7_VRAM_Y <= M7_TEMP_Y + MPY;
 
-				-- HD Mode 7: compute sub-pixel 2 coordinates (diagonal half-pixel offset)
+				-- HD Mode 7: compute sub-pixel 2 coordinates (half-pixel offset)
 				if M7_HD = '1' then
-					M7_VRAM_X2 <= (M7_TEMP_X + M7_MULT_X) + resize(shift_right(resize(signed(M7A), 27), 1), 27)
-					                                        + resize(shift_right(resize(signed(M7B), 27), 1), 27);
-					M7_VRAM_Y2 <= (M7_TEMP_Y + MPY) + resize(shift_right(resize(signed(M7C), 27), 1), 27)
-					                                  + resize(shift_right(resize(signed(M7D), 27), 1), 27);
+					M7_VRAM_X2 <= (M7_TEMP_X + M7_MULT_X) + resize(shift_right(resize(signed(M7A), 27), 1), 27);
+					M7_VRAM_Y2 <= (M7_TEMP_Y + MPY) + resize(shift_right(resize(signed(M7C), 27), 1), 27);
 				end if;
 
 				-- Second cycle: Set address B for Pixel read
@@ -2450,20 +2456,23 @@ begin
 		elsif SPR_PIX_DATA(3 downto 0) /= "0000" and OBJPR2EN = '1' then
 			CGRAM_FETCH_ADDR <= "1" & SPR_PIX_DATA(6 downto 0);
 			MATH := CGADSUB(4) and SPR_PIX_DATA(6);
-		elsif M7_BG2_COLOR(6 downto 0) /= "0000000" and BGPR1EN(1) = '1' and M7EXTBG = '1' then
+		elsif M7_BG2_COLOR(6 downto 0) /= "0000000" and BGPR1EN(1) = '1' and M7EXTBG = '1'
+		      and (M7_HD = '0' or (M7_PIX_DATA2(6 downto 0) /= "0000000" and BG2_PIX_DATA(6 downto 0) /= "0000000")) then
 			CGRAM_FETCH_ADDR <= "0" & M7_BG2_COLOR(6 downto 0);
 			MATH := CGADSUB(1);
 		elsif SPR_PIX_DATA(3 downto 0) /= "0000" and OBJPR1EN = '1' then
 			CGRAM_FETCH_ADDR <= "1" & SPR_PIX_DATA(6 downto 0);
 			MATH := CGADSUB(4) and SPR_PIX_DATA(6);
-		elsif M7_BG1_COLOR /= "00000000" and BGPR0EN(0) = '1' then
+		elsif M7_BG1_COLOR /= "00000000" and BGPR0EN(0) = '1'
+		      and (M7_HD = '0' or (M7_PIX_DATA2 /= "00000000" and BG1_PIX_DATA(7 downto 0) /= "00000000")) then
 			CGRAM_FETCH_ADDR <= M7_BG1_COLOR;
 			DCM := CGWSEL(0);
 			MATH := CGADSUB(0);
 		elsif SPR_PIX_DATA(3 downto 0) /= "0000" and OBJPR0EN = '1' then
 			CGRAM_FETCH_ADDR <= "1" & SPR_PIX_DATA(6 downto 0);
 			MATH := CGADSUB(4) and SPR_PIX_DATA(6);
-		elsif M7_BG2_COLOR(6 downto 0) /= "0000000" and BGPR0EN(1) = '1' and M7EXTBG = '1' then
+		elsif M7_BG2_COLOR(6 downto 0) /= "0000000" and BGPR0EN(1) = '1' and M7EXTBG = '1'
+		      and (M7_HD = '0' or (M7_PIX_DATA2(6 downto 0) /= "0000000" and BG2_PIX_DATA(6 downto 0) /= "0000000")) then
 			CGRAM_FETCH_ADDR <= "0" & M7_BG2_COLOR(6 downto 0);
 			MATH := CGADSUB(1);
 		else
@@ -2634,7 +2643,8 @@ HIGH_RES <= HIRES or (PSEUDOHIRES and not BLEND)
 				    and BG_MODE_SYNC(2) and BG_MODE_SYNC(1) and BG_MODE_SYNC(0));
 V224 <= not OVERSCAN;
 FIELD_OUT <= FIELD;
-INTERLACE <= BGINTERLACE;
+-- Mode 7 V2X: signal interlace when HD Mode 7 is active for vertical doubling
+INTERLACE <= BGINTERLACE or (M7_HD and BG_MODE_SYNC(2) and BG_MODE_SYNC(1) and BG_MODE_SYNC(0));
 
 
 -- save states
