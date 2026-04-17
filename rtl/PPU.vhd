@@ -1368,10 +1368,12 @@ begin
 				M7_VRAM_X <= M7_TEMP_X + M7_MULT_X;
 				M7_VRAM_Y <= M7_TEMP_Y + MPY;
 
-				-- HD Mode 7: compute sub-pixel 2 coordinates (half-pixel offset)
+				-- HD Mode 7: compute sub-pixel 2 coordinates (diagonal half-pixel offset)
 				if M7_HD = '1' then
-					M7_VRAM_X2 <= (M7_TEMP_X + M7_MULT_X) + resize(shift_right(resize(signed(M7A), 27), 1), 27);
-					M7_VRAM_Y2 <= (M7_TEMP_Y + MPY) + resize(shift_right(resize(signed(M7C), 27), 1), 27);
+					M7_VRAM_X2 <= (M7_TEMP_X + M7_MULT_X) + resize(shift_right(resize(signed(M7A), 27), 1), 27)
+					                                        + resize(shift_right(resize(signed(M7B), 27), 1), 27);
+					M7_VRAM_Y2 <= (M7_TEMP_Y + MPY) + resize(shift_right(resize(signed(M7C), 27), 1), 27)
+					                                  + resize(shift_right(resize(signed(M7D), 27), 1), 27);
 				end if;
 
 				-- Second cycle: Set address B for Pixel read
