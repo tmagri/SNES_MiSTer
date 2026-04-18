@@ -2453,12 +2453,13 @@ begin
 		-- HD Mode 7: select main pixel or sub-pixel 2 based on DOT_CLK
 		-- DOT_CLK = '0' targets MAIN (Left pixel, X.0) -> M7_PIX_DATA2
 		-- DOT_CLK = '1' targets SUB (Right pixel, X+0.5) -> BG1_PIX_DATA
-		if M7_HD = '1' and DOT_CLK = '1' then
-			M7_BG1_COLOR := BG1_PIX_DATA(7 downto 0);
-			M7_BG2_COLOR := BG2_PIX_DATA(7 downto 0);
-		else
+		-- Non-HD always uses BG1_PIX_DATA (M7_PIX_DATA2 is only valid in HD mode)
+		if M7_HD = '1' and DOT_CLK = '0' then
 			M7_BG1_COLOR := M7_PIX_DATA2;
 			M7_BG2_COLOR := M7_PIX_DATA2;
+		else
+			M7_BG1_COLOR := BG1_PIX_DATA(7 downto 0);
+			M7_BG2_COLOR := BG2_PIX_DATA(7 downto 0);
 		end if;
 
 		if SPR_PIX_DATA(3 downto 0) /= "0000" and OBJPR3EN = '1' then
@@ -2526,6 +2527,13 @@ begin
 					MATH_EN := MATH;
 					HALF := CGADSUB(6) and MAIN_EN and not (SUB_BD and CGWSEL(1));
 					SUB_MATH_EN := CGWSEL(1) and not SUB_BD;
+
+					-- HD Mode 7: both DOT_CLK phases render independent sub-pixels,
+					-- so PREV_COLOR is the other sub-pixel, not a real sub-screen layer.
+					-- Force fixed-color path to prevent adding two sub-pixels together.
+					if M7_HD = '1' and BG_MODE_SYNC = "111" then
+						SUB_MATH_EN := '0';
+					end if;
 
 					if MAIN_EN = '0' then
 						COLOR_MASK := "00000";
@@ -2654,9 +2662,7 @@ HIGH_RES <= HIRES or (PSEUDOHIRES and not BLEND)
 				    and BG_MODE_SYNC(2) and BG_MODE_SYNC(1) and BG_MODE_SYNC(0));
 V224 <= not OVERSCAN;
 FIELD_OUT <= FIELD;
--- Mode 7 V2X: signal interlace when HD Mode 7 is active for vertical doubling
--- Suppress M7 interlace when deinterlace filter is active (output progressive)
-INTERLACE <= BGINTERLACE or (M7_HD and not M7_DEINT and BG_MODE_SYNC(2) and BG_MODE_SYNC(1) and BG_MODE_SYNC(0));
+INTERLACE <= BGINTERLACE;
 
 
 -- save states
