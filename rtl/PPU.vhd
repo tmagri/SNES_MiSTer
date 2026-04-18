@@ -1339,6 +1339,8 @@ begin
 					M7_SCREEN_X <= M7_SCREEN_X + 1;
 				elsif H_CNT = LAST_DOT then
 					M7_SCREEN_X <= (others => '0');
+					-- Removed M7A_LATCH/M7C_LATCH: HDMA updates M7A/M7C during HBLANK. 
+					-- Latching at LAST_DOT captures stale data, corrupting the SMK map matrix!
 				end if;
 
 				if H_CNT = M7_XY_LATCH then
@@ -1382,10 +1384,11 @@ begin
 				M7_VRAM_X <= M7_TEMP_X + M7_MULT_X;
 				M7_VRAM_Y <= M7_TEMP_Y + MPY;
 
-				-- HD Mode 7: compute sub-pixel 2 coordinates (half-pixel offset)
+				-- HD Mode 7: compute sub-pixel 2 coordinates (half-pixel offset).
+				-- Divide by 2 instead of shifting to round towards zero symmetrically.
 				if M7_HD = '1' then
-					M7_VRAM_X2 <= (M7_TEMP_X + M7_MULT_X) + resize(shift_right(resize(signed(M7A), 27), 1), 27);
-					M7_VRAM_Y2 <= (M7_TEMP_Y + MPY) + resize(shift_right(resize(signed(M7C), 27), 1), 27);
+					M7_VRAM_X2 <= (M7_TEMP_X + M7_MULT_X) + (resize(signed(M7A), 27) / 2);
+					M7_VRAM_Y2 <= (M7_TEMP_Y + MPY)       + (resize(signed(M7C), 27) / 2);
 				end if;
 
 				-- Second cycle: Set address B for Pixel read
@@ -2448,12 +2451,14 @@ begin
 		
 	else	-- MODE7
 		-- HD Mode 7: select main pixel or sub-pixel 2 based on DOT_CLK
+		-- DOT_CLK = '0' targets MAIN (Left pixel, X.0) -> M7_PIX_DATA2
+		-- DOT_CLK = '1' targets SUB (Right pixel, X+0.5) -> BG1_PIX_DATA
 		if M7_HD = '1' and DOT_CLK = '1' then
-			M7_BG1_COLOR := M7_PIX_DATA2;
-			M7_BG2_COLOR := M7_PIX_DATA2;
-		else
 			M7_BG1_COLOR := BG1_PIX_DATA(7 downto 0);
 			M7_BG2_COLOR := BG2_PIX_DATA(7 downto 0);
+		else
+			M7_BG1_COLOR := M7_PIX_DATA2;
+			M7_BG2_COLOR := M7_PIX_DATA2;
 		end if;
 
 		if SPR_PIX_DATA(3 downto 0) /= "0000" and OBJPR3EN = '1' then
