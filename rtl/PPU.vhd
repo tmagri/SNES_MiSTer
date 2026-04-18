@@ -1343,7 +1343,14 @@ begin
 
 				if H_CNT = M7_XY_LATCH then
 					-- Mode 7 V2X: on odd fields, shift by half a scanline vertically
-					if M7_HD = '1' and FIELD = '1' then
+					-- Perspective-adaptive: only apply when vertical step is significant.
+					-- M7B/M7D are 8.8 fixed-point (per-scanline via HDMA for perspective).
+					-- Near the horizon, |step| < 2.0 tile pixels/scanline: the half-step
+					-- offset is sub-pixel and only creates temporal noise in the bob output.
+					-- Check bits 15:9: if all-same, |value| < 2.0 (int part in -2..1).
+					if M7_HD = '1' and FIELD = '1'
+					   and ((M7B(15 downto 9) /= "0000000" and M7B(15 downto 9) /= "1111111")
+					     or (M7D(15 downto 9) /= "0000000" and M7D(15 downto 9) /= "1111111")) then
 						M7_TEMP_X <= (resize(signed(M7X), M7_TEMP_X'length) sll 8)
 						             + resize(shift_right(resize(signed(M7B), 27), 1), 27);
 						M7_TEMP_Y <= (resize(signed(M7Y), M7_TEMP_Y'length) sll 8)
