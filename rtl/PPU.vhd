@@ -61,6 +61,7 @@ entity SPPU is
 		BG_EN			: in std_logic_vector(4 downto 0);
 
 		M7_HD			: in std_logic;
+		M7_DEINT		: in std_logic;
 
 		SS_A			: in std_logic_vector(7 downto 0);
 		SS_DO			: out std_logic_vector(7 downto 0)
@@ -2644,7 +2645,8 @@ HIGH_RES <= HIRES or (PSEUDOHIRES and not BLEND)
 V224 <= not OVERSCAN;
 FIELD_OUT <= FIELD;
 -- Mode 7 V2X: signal interlace when HD Mode 7 is active for vertical doubling
-INTERLACE <= BGINTERLACE or (M7_HD and BG_MODE_SYNC(2) and BG_MODE_SYNC(1) and BG_MODE_SYNC(0));
+-- Suppress M7 interlace when deinterlace filter is active (output progressive)
+INTERLACE <= BGINTERLACE or (M7_HD and not M7_DEINT and BG_MODE_SYNC(2) and BG_MODE_SYNC(1) and BG_MODE_SYNC(0));
 
 
 -- save states

@@ -188,7 +188,7 @@ assign VGA_SCALER= 0;
 assign VGA_DISABLE = 0;
 assign HDMI_FREEZE = 0;
 assign HDMI_BLACKOUT = 0;
-assign HDMI_BOB_DEINT = 0;
+assign HDMI_BOB_DEINT = M7_DEINT;
 
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
 
@@ -329,6 +329,7 @@ parameter CONF_STR = {
 	"P1-;",
 	"P1OG,Pseudo Transparency,Blend,Off;",
 	"P1O[58],Mode 7 (x2),Off,On;",
+	"P1O[59],M7 Deinterlace,Off,On;",
 	"P1-;",
 	"P1OJK,Stereo Mix,None,25%,50%,100%;", 
 
@@ -477,6 +478,7 @@ wire       SUFAMI_SWAP = status[31];
 wire [3:0] CC_TIME = status[57:54];
 wire       BLEND = ~status[16];
 wire       M7_HD = status[58];
+wire       M7_DEINT = status[59];
 wire [1:0] mouse_mode = status[6:5];
 wire       joy_swap = status[7] | piano;
 wire [2:0] LHRom_type = status[3:1];
@@ -724,6 +726,7 @@ main main
 `endif
 
 	.M7_HD(M7_HD),
+	.M7_DEINT(M7_DEINT),
 
 	// MSU register handling
 	.MSU_TRACK_NUM(msu_track_num),
