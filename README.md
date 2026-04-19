@@ -2,6 +2,20 @@
 
 Written by [srg320](https://github.com/srg320)
 
+## Experimental Status (This Branch)
+This version is experimental and has limited support.
+
+It will not be pushed to `master` in its current form, since other pending changes may still be breaking.
+
+Current status:
+* Mode 7 2x works.
+* For progressive TVs, enable deinterlacing.
+* Overclock fix for Top Gear 3000 works, albeit with minor visual glitches.
+
+For regular support, please use the main MiSTer community channels.
+
+This build was used as an experiment.
+
 ## Installing
 copy \*.rbf to root of SD card. Put some ROMs (\*.SFC, \*.SMC, \*.BIN) into SNES folder
 
